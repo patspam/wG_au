@@ -1,0 +1,3 @@
+#!/usr/bin/env perl
+use wG_au::Cmd;
+wG_au::Cmd->run;
