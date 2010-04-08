@@ -6,16 +6,13 @@ use utf8;
 our $LANGUAGE = {
   'label' => 'Australian',
   'languageAbbreviation' => 'en',
-  'locale' => 'au',
+  'locale' => 'AU',
   'toolbar' => 'bullet'
 }
 ;
 
 sub makeUrlCompliant {
     my $value = shift;
-##<-- start transliteration -->##
-
-##<-- end transliteration -->##
     $value =~ s/\s+$//;                     #removes trailing whitespace
     $value =~ s/^\s+//;                     #removes leading whitespace
     $value =~ s/ /-/g;                      #replaces whitespace with underscores
@@ -25,6 +22,5 @@ sub makeUrlCompliant {
     $value =~ s{^/}{};                      #removes a preceeding /
     return $value;
 }
-
 
 1;

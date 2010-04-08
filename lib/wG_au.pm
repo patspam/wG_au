@@ -31,12 +31,21 @@ sub translate {
     my $en = File::Spec->catfile($i18n, 'English');
     my $now = time;
     
+    # Create the Language definition file
+    my $defn = File::Spec->catfile($to, 'Australian.pm');
+    print "Creating language definition $defn\n";
+    # my $share = dist_dir(__PACKAGE__);
+    # copy(File::Spec->catfile($share, 'Australian.tmpl'), File::Spec->catfile($to, 'Australian.pm'))
+        # or die $!;
+    
+    # Create the dir that will hold all the translated language files
     mkdir $subdir unless -e $subdir;
     
+    # Translate!
     find(sub {
         my $file = $_;
         return unless $file =~ m{\.pm$};
-        
+        require $file;
         my $package = $file;
         $package =~ s{\.pm$}{};
         print "Translating $package..\n";
@@ -59,13 +68,6 @@ our \$I18N = $dump;
 END_CONTENTS
         Perl::Tidy::perltidy( source => \$contents, destination => $t);
     }, $en);
-    
-    # Create the Language definition file
-    my $defn = File::Spec->catfile($to, 'Australian.pm');
-    print "Creating language definition $defn\n";
-    my $share = dist_dir(__PACKAGE__);
-    copy(File::Spec->catfile($share, 'Australian.tmpl'), File::Spec->catfile($to, 'Australian.pm'))
-        or die $!;
     
     print "Finished!\n";
 }
