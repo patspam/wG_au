@@ -12,6 +12,8 @@ use File::Find;
 use Perl::Tidy;
 use autodie;
 use Data::Dumper;
+use Lingua::EN::VarCon;
+use Lingua::EN::Splitter qw(words);
 
 =head1 DESCRIPTION
 
@@ -34,25 +36,33 @@ sub translate {
     # Create the Language definition file
     my $defn = File::Spec->catfile($to, 'Australian.pm');
     print "Creating language definition $defn\n";
-    # my $share = dist_dir(__PACKAGE__);
-    # copy(File::Spec->catfile($share, 'Australian.tmpl'), File::Spec->catfile($to, 'Australian.pm'))
-        # or die $!;
+    my $share = dist_dir(__PACKAGE__);
+    copy(File::Spec->catfile($share, 'Australian.tmpl'), File::Spec->catfile($to, 'Australian.pm'))
+        or die $!;
     
     # Create the dir that will hold all the translated language files
     mkdir $subdir unless -e $subdir;
+    
+    open my $abbc, '<', Lingua::EN::VarCon->abbc_file;
+    my $dic;
+    while(my $line = $abbc->getline) {
+        chop $line;
+        my ($us, $au) = split /\t/, $line;
+        $dic->{$us} = $au;
+    }
     
     # Translate!
     find(sub {
         my $file = $_;
         return unless $file =~ m{\.pm$};
-        require $file;
+        require Path::Class::File->new($file)->absolute;
         my $package = $file;
         $package =~ s{\.pm$}{};
         print "Translating $package..\n";
         my $i = eval "\$WebGUI::i18n::English::${package}::I18N";
         for my $v (values %$i) {
             $v->{lastUpdated} = $now;
-            $v->{message} = $class->translate_phrase($v->{message});
+            $v->{message} = $class->translate_phrase($v->{message}, $dic);
         }
         $Data::Dumper::Terse = 1;
         $Data::Dumper::Sortkeys = 1;
@@ -73,8 +83,17 @@ END_CONTENTS
 }
 
 sub translate_phrase {
-    my ($class, $phrase) = @_;
-    return "G'day! $phrase";
+    my ($class, $phrase, $dic) = @_;
+    my $orig = $phrase;
+    for my $word (@{words($phrase)}) {
+        my $trans = $dic->{$word};
+        if (defined $trans) {
+            $phrase =~ s/\Q$word\E/$trans/;
+        }
+    }
+    # Uncomment to see alterations
+    # print "$orig -> $phrase" if $orig ne $phrase;
+    return $phrase;
 }
 
 1;
