@@ -1,6 +1,7 @@
 package wG_au;
 # ABSTRACT: Creates the Australian WebGUI translation
 
+use 5.10.0;
 use warnings;
 use strict;
 use Path::Class;
@@ -13,13 +14,16 @@ use Perl::Tidy;
 use autodie;
 use Data::Dumper;
 use Lingua::EN::VarCon;
-use Lingua::EN::Splitter qw(words);
 
 =head1 DESCRIPTION
 
 Creates an Australian translation from the default WebGUI "English" translation
 
     wG_au [target_dir]
+    
+Review with e.g.
+
+    ack -i "'message'.*\bcrikey\b" Australian/
 
 =cut
 
@@ -35,14 +39,15 @@ sub translate {
     
     # Create the Language definition file
     my $defn = File::Spec->catfile($to, 'Australian.pm');
-    print "Creating language definition $defn\n";
-    my $share = dist_dir(__PACKAGE__);
-    copy(File::Spec->catfile($share, 'Australian.tmpl'), File::Spec->catfile($to, 'Australian.pm'))
-        or die $!;
+    say "Creating language definition $defn";
+    # my $share = dist_dir(__PACKAGE__);
+    # copy(File::Spec->catfile($share, 'Australian.tmpl'), File::Spec->catfile($to, 'Australian.pm'))
+        # or die $!;
     
     # Create the dir that will hold all the translated language files
     mkdir $subdir unless -e $subdir;
     
+    # Start with VarCon
     open my $abbc, '<', Lingua::EN::VarCon->abbc_file;
     my $dic;
     while(my $line = $abbc->getline) {
@@ -51,14 +56,18 @@ sub translate {
         $dic->{$us} = $au;
     }
     
+    # Add extra Australianisms
+    $class->add_extras($dic);
+    
     # Translate!
     find(sub {
         my $file = $_;
         return unless $file =~ m{\.pm$};
+        # return unless $file =~ m/GalleryAlbum/;
         require Path::Class::File->new($file)->absolute;
         my $package = $file;
         $package =~ s{\.pm$}{};
-        print "Translating $package..\n";
+        say "Translating $package..";
         my $i = eval "\$WebGUI::i18n::English::${package}::I18N";
         for my $v (values %$i) {
             $v->{lastUpdated} = $now;
@@ -79,21 +88,47 @@ END_CONTENTS
         Perl::Tidy::perltidy( source => \$contents, destination => $t);
     }, $en);
     
-    print "Finished!\n";
+    say "Finished!";
 }
 
 sub translate_phrase {
     my ($class, $phrase, $dic) = @_;
     my $orig = $phrase;
-    for my $word (@{words($phrase)}) {
+    for my $word ($class->words($phrase)) {
         my $trans = $dic->{$word};
         if (defined $trans) {
             $phrase =~ s/\Q$word\E/$trans/;
         }
+        
+        # Try again to catch Capitalised words
+        $trans = $dic->{lcfirst $word};
+        if (defined $trans) {
+            $phrase =~ s/\Q$word\E/\u$trans/;
+        }
     }
     # Uncomment to see alterations
-    # print "$orig -> $phrase" if $orig ne $phrase;
+    # say "$orig -> $phrase" if $orig ne $phrase;
     return $phrase;
 }
+
+sub add_extras {
+    my ($class, $dic) = @_;
+    
+    my %extras = (
+        friend => 'mate',
+        friends => 'mates',
+        hello => 'gday',
+        thanks => 'cheers',
+        error => 'crikey',
+    );
+    @$dic{keys %extras} = values %extras;
+}
+
+# Split text into words
+sub words {
+    my ($class, $input) = @_;
+    return split qr{\W+}, $input;
+}
+
 
 1;
